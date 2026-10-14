@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>안심사본 PoC</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  /* coinbase/DESIGN.md 토큰. Slate·Ash는 원본의 잘린 값(#5b616, #8a919)을 본문 값으로 보정 */
+  :root {
+    --blue:#0052ff; --white:#fff; --midnight:#0a0b0d; --slate:#5b616e; --ash:#8a919e;
+    --frost:#f7f8f9; --cloud:#eef0f3; --pewter:#dedfe2; --green:#27ad75; --red:#f0616d;
+    --font:"Pretendard Variable", Pretendard, Inter, "Malgun Gothic", system-ui, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:400 16px/1.5 var(--font); color:var(--midnight); background:var(--white); -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:960px; margin:0 auto; }
+  /* 그림자·구분선 없이 흰 구역과 진한 구역을 번갈아 써서 깊이를 낸다 */
+  .hero { background:var(--midnight); color:var(--white); padding:56px 16px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:600; }
+  .brand i { width:24px; height:24px; border-radius:8px; background:var(--blue); }
+  .hero h1 { margin:40px 0 16px; font-size:52px; line-height:1.09; font-weight:500; letter-spacing:-0.02em; }
+  .hero p { margin:0; max-width:560px; color:var(--ash); font-size:18px; line-height:1.56; }
+  .hero .wrap { display:grid; grid-template-columns:1fr 340px; gap:48px; align-items:center; }
+  /* 오른쪽은 실제 검증 결과 카드의 축소판 (가상 데이터) */
+  .preview { padding:24px; border-radius:24px; background:#141519; font-size:15px; }
+  .preview .ok { display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:100000px; background:var(--midnight); font-size:13px; font-weight:600; }
+  .preview .ok::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--green); }
+  .preview dl { display:grid; grid-template-columns:112px 1fr; gap:10px 12px; margin:20px 0 0; }
+  .preview dt, .preview .off, .preview small { color:var(--ash); }
+  .preview dd { margin:0; font-weight:600; }
+  .preview dd.off { font-weight:400; }
+  .preview small { display:block; margin-top:20px; font-size:13px; }
+  /* thinking-orbs 원작 쓰임새 그대로: 64 프리셋을 알약 안 48px로, 2배 이상 촘촘하게 */
+  .loading-pill { display:inline-flex; align-items:center; gap:10px; margin:32px 0 16px; padding:0 28px 0 8px; border-radius:50px; background:var(--frost); color:var(--slate); font-weight:600; }
+  .loading-pill canvas { width:48px; height:48px; flex:none; }
+  .empty { margin-top:32px; padding:32px 24px; border-radius:24px; background:var(--frost); color:var(--slate); }
+
+  /* 움직임: transform·opacity만, 스프링에 가까운 감속 곡선. 움직임 줄이기 설정이면 전부 끔 */
+  :root { --ease:cubic-bezier(0.16, 1, 0.3, 1); }
+  .btn, nav button, .fields label { transition:background-color .3s var(--ease), color .3s var(--ease), transform .3s var(--ease); }
+  .btn:hover:not(:active) { transform:translateY(-1px); }
+  @keyframes rise { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+  @keyframes beat { 0%, 100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.6); opacity:.45; } }
+  @media (prefers-reduced-motion: no-preference) {
+    section.on { animation:rise .5s var(--ease); }
+    /* 결과·미리보기 줄이 차례로 나타남 (--i는 순번) */
+    .stagger > * { animation:rise .6s var(--ease) both; animation-delay:calc(var(--i, 0) * 70ms); }
+    .preview .ok::before { animation:beat 2.4s ease-in-out infinite; } /* 살아 있는 검증 상태 */
+  }
+  main { padding:48px 16px 80px; }
+  nav { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:48px; }
+  nav button { padding:12px 24px; border:0; border-radius:100000px; background:var(--cloud); color:var(--slate); font:600 15px var(--font); cursor:pointer; }
+  nav button:hover { background:var(--pewter); }
+  nav button[aria-selected=true] { background:var(--midnight); color:var(--white); }
+  section { display:none; }
+  section.on { display:block; }
+  h2 { margin:0 0 8px; font-size:28px; line-height:1.25; font-weight:600; letter-spacing:-0.01em; }
+  .who { margin:0 0 32px; color:var(--slate); }
+  label { display:block; margin:24px 0 8px; font-size:15px; font-weight:600; }
+  input[type=text], select, textarea { width:100%; padding:14px 16px; border:0; border-radius:8px; background:var(--cloud); color:var(--midnight); font:inherit; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  textarea { height:96px; color:var(--slate); font:13px/1.5 ui-monospace, Consolas, monospace; }
+  .btn { margin:24px 8px 0 0; padding:16px 32px; border:0; border-radius:56px; background:var(--blue); color:var(--white); font:600 16px var(--font); cursor:pointer; }
+  .btn:active, nav button:active { transform:scale(0.98); }
+  .btn.ghost { background:var(--cloud); color:var(--midnight); }
+  .btn.ghost:hover { background:var(--pewter); }
+  .btn.warn { margin:0; padding:10px 20px; background:var(--midnight); font-size:14px; }
+  .fields { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+  .fields label { margin:0; padding:14px 18px; border-radius:100000px; background:var(--frost); font-weight:400; display:flex; gap:10px; align-items:center; cursor:pointer; }
+  .fields label:has(input:checked) { background:var(--midnight); color:var(--white); }
+  .fields input { width:18px; height:18px; accent-color:var(--blue); }
+  .note { margin-top:16px; padding:16px 24px; border-radius:24px; background:var(--frost); color:var(--slate); }
+  .banner { display:flex; gap:12px; align-items:center; margin:32px 0 16px; padding:20px 24px; border-radius:24px; background:var(--frost); font-weight:600; }
+  .banner::before { content:''; width:10px; height:10px; border-radius:50%; flex:none; }
+  .banner.ok::before { background:var(--green); }
+  .banner.bad::before { background:var(--red); }
+  .idcard { position:relative; overflow:hidden; display:grid; grid-template-columns:112px 1fr; gap:24px; padding:24px; border-radius:24px; background:var(--frost); }
+  .photo { width:112px; height:140px; border-radius:16px; background:var(--cloud); display:grid; place-items:center; color:var(--slate); font-size:13px; text-align:center; }
+  .row { display:flex; gap:16px; padding:6px 0; }
+  .row b { width:120px; flex:none; color:var(--slate); font-weight:400; }
+  .hidden { color:var(--slate); } /* ash는 frost 위 대비 3:1이라 AA 미달 → slate */
+  .wm { position:absolute; inset:-50%; pointer-events:none; transform:rotate(-24deg); color:var(--midnight); opacity:.07; font-size:14px; font-weight:700; line-height:2.4; word-spacing:20px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; margin-top:8px; }
+  .stat { padding:24px; border-radius:24px; background:var(--frost); color:var(--slate); font-size:14px; }
+  .stat strong { display:block; margin-bottom:4px; color:var(--midnight); font-size:28px; line-height:1.25; font-weight:600; }
+  .link { margin-top:8px; padding:16px 24px; border-radius:24px; background:var(--frost); color:var(--slate); font:12px/1.5 ui-monospace, Consolas, monospace; word-break:break-all; }
+  #adminOut { overflow-x:auto; } /* 좁은 휴대폰에서 표만 옆으로 밀리게 */
+  table { width:100%; border-collapse:separate; border-spacing:0 8px; font-size:15px; }
+  th { padding:0 16px; text-align:left; color:var(--slate); font-size:13px; font-weight:400; }
+  td { padding:16px; background:var(--frost); vertical-align:top; }
+  td:first-child { border-radius:24px 0 0 24px; }
+  td:last-child { border-radius:0 24px 24px 0; }
+  small { color:var(--slate); }
+  .tag { padding:4px 12px; border-radius:100000px; background:var(--white); font-size:13px; font-weight:600; white-space:nowrap; }
+  /* 초록·빨강 글씨는 흰 바탕 대비 3:1 미만 → 글씨는 midnight, 상태는 점 색으로만 */
+  .tag::before { content:''; display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; vertical-align:1px; }
+  .tag.ok::before { background:var(--green); }
+  .tag.bad::before { background:var(--red); }
+  .qr { display:flex; flex-wrap:wrap; gap:24px; align-items:center; margin-top:8px; padding:24px; border-radius:24px; background:var(--frost); }
+  /* 링크가 1,100자 안팎이라 QR이 113칸 이상 → 휴대폰이 읽도록 크게 */
+  .qr svg { width:300px; max-width:100%; height:auto; flex:none; border-radius:16px; background:var(--white); }
+  footer { padding:32px 16px; background:var(--frost); color:var(--slate); font-size:13px; }
+  @media (max-width:600px) { .hero h1 { font-size:36px; } .hero .wrap { grid-template-columns:1fr; } .idcard { grid-template-columns:1fr; } }
+  @media print { .hero, nav, .btn, .noprint, footer { display:none !important; } }
+</style>
+</head>
+<body>
+<header class="hero"><div class="wrap">
+  <div>
+    <div class="brand"><i aria-hidden="true"></i>안심사본</div>
+    <h1>필요한 만큼만,<br>정해진 기간만.</h1>
+    <p>신분증 사진 대신, 항목·기한·받는 사람이 정해진 검증 사본을 보내세요.</p>
+  </div>
+  <div class="preview" role="img" aria-label="안심사본 검증 화면 예시">
+    <span class="ok">정부 서명 확인</span>
+    <dl class="stagger">
+      <dt>이름</dt><dd>김모바</dd>
+      <dt>생년월일</dt><dd>1990-01-01</dd>
+      <dt>주소</dt><dd>가상시 예시구 샘플로 12</dd>
+      <dt>주민번호 뒷자리</dt><dd class="off">가려짐</dd>
+      <dt>얼굴 사진</dt><dd class="off">가려짐</dd>
+    </dl>
+    <small>○○부동산에 주택 임대차 용도로, 7일 뒤 열람 종료</small>
+  </div>
+</div></header>
+<main class="wrap">
+  <nav role="tablist">
+    <button role="tab" data-tab="req" aria-selected="true">요청 (받는 사람)</button>
+    <button role="tab" data-tab="issue">발급 (이용자)</button>
+    <button role="tab" data-tab="verify">검증 (받는 사람)</button>
+    <button role="tab" data-tab="admin">기록과 철회 (이용자)</button>
+  </nav>
+
+  <section id="req" class="on">
+    <h2>사본 요청 만들기</h2>
+    <p class="who">집주인·채용 담당자 등 받는 사람의 화면 (앱 설치 없이 정부 검증 웹페이지에서)</p>
+    <label for="recipient">받는 사람</label>
+    <input id="recipient" type="text" value="○○부동산">
+    <label for="purpose">용도</label>
+    <select id="purpose"></select>
+    <button class="btn" id="sendReq">요청 보내기</button>
+  </section>
+
+  <section id="issue">
+    <h2>요청 확인과 발급</h2>
+    <p class="who">이용자의 모바일신분증 앱 화면</p>
+    <div id="issueBody"><p>먼저 '요청' 탭에서 요청을 보내 주세요.</p></div>
+  </section>
+
+  <section id="verify">
+    <h2>안심사본 검증</h2>
+    <p class="who">받는 사람의 화면 · 링크를 열면 자동으로 검증합니다</p>
+    <label for="token">안심사본 링크 또는 코드</label>
+    <textarea id="token"></textarea>
+    <div class="noprint">
+      <button class="btn" id="doVerify">검증하기</button>
+      <button class="btn ghost" id="doTamper" title="생년월일을 한 글자 바꿔서 다시 검증합니다">변조 시험</button>
+      <button class="btn ghost" onclick="print()">종이 사본 인쇄</button>
+    </div>
+    <div id="verifyOut" class="stagger"><div class="empty">받은 안심사본 링크를 위 칸에 붙여 넣고 검증하기를 누르세요. '발급' 탭에서 만든 사본은 바로 열어 볼 수 있어요.</div></div>
+  </section>
+
+  <section id="admin">
+    <h2>내가 보낸 안심사본</h2>
+    <p class="who">이용자의 모바일신분증 앱 화면</p>
+    <div id="adminOut"></div>
+  </section>
+</main>
+<footer><div class="wrap">PoC 시연용 화면입니다. 인물 정보와 서명 키는 모두 가상 데이터입니다.</div></footer>
+
+<script src="qrcode.js"></script>
+<script>
+// ---- 가상 인물과 용도별 템플릿 ----
+const CLAIMS = { name:'김모바', name_masked:'김*바', birth:'1990-01-01', adult:'성인(만 19세 이상)', rrn_back:'1234567',
+  address:'가상시 예시구 샘플로 12, 301호', photo:'(얼굴 사진)', issue_date:'2024-03-15', issuer:'가상시 예시구청장' };
+const LABEL = { name:'이름', name_masked:'이름(일부 가림)', birth:'생년월일', adult:'성인 여부', rrn_back:'주민번호 뒷자리',
+  address:'주소', photo:'얼굴 사진', issue_date:'발급일', issuer:'발급기관' };
+const TEMPLATES = { '아르바이트 채용':['name','birth'], '숙박·렌터카':['name','birth','photo'],
+  '주택 임대차':['name','birth','address'], '중고거래':['name_masked','adult'] };
+const PHOTO_COPY_COUNT = 6; // 사진 사본에 찍히는 항목: 이름·주민번호·주소·사진·발급일·발급기관
+const EXPIRY = { '1분 (시연용)':60, '24시간':86400, '7일':604800 };
+
+// ---- 인코딩·암호 도우미 (브라우저 기본 기능만 사용) ----
+const enc = s => new TextEncoder().encode(s);
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64u = s => Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+const b64uStr = s => b64u(enc(s));
+const strB64u = s => new TextDecoder().decode(unb64u(s));
+const sha = async s => b64u(await crypto.subtle.digest('SHA-256', enc(s)));
+const ALG = { name:'ECDSA', namedCurve:'P-256' }, SIGN = { name:'ECDSA', hash:'SHA-256' };
+const load = (k, d) => JSON.parse(localStorage.getItem(k) || 'null') ?? d;
+const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+// 가상 발급기관 키 (시연 전용 · 공개된 키라 실제 보안 없음). 실서비스에서 비밀키는 정부 서버에만 있다.
+// 키를 고정해 두면 PC에서 발급한 사본을 휴대폰 등 다른 기기에서도 검증할 수 있다.
+const DEMO_KEY = { kty:'EC', crv:'P-256', x:'Sb1d3s_LZIHnwG_539Ufp3lcYOXW1wQzfzSuFJ0YTwQ', y:'yEr3OI93mzCXhtjnMWeHlqjYHAPa3GdoXL0fbllJxuI' };
+const DEMO_D = 'JX9EZFoUobQYA-JMWemmsTRLpGNGaR3G4krk8zkDjWA';
+async function issuerKeys() {
+  return { priv: await crypto.subtle.importKey('jwk', { ...DEMO_KEY, d: DEMO_D }, ALG, false, ['sign']),
+           pub:  await crypto.subtle.importKey('jwk', DEMO_KEY, ALG, false, ['verify']) };
+}
+
+// 링크를 QR 그림(SVG)으로. 버전은 길이에 맞춰 자동, 오류정정은 가장 낮은 L(데이터를 가장 많이 담음)
+function qrSvg(text) {
+  const qr = qrcode(0, 'L'); qr.addData(text); qr.make();
+  return qr.createSvgTag({ cellSize: 3, margin: 2, scalable: true });
+}
+
+// SD-JWT 방식: 모든 항목의 지문(해시)은 서명 안에 넣고, 이용자가 고른 항목의 원문만 붙여 보낸다
+async function issueCopy(req, fields, ttl) {
+  const salt = () => b64u(crypto.getRandomValues(new Uint8Array(16)));
+  const all = await Promise.all(Object.keys(CLAIMS).map(async k => {
+    const d = b64uStr(JSON.stringify([salt(), k, CLAIMS[k]]));
+    return { k, d, digest: await sha(d) };
+  }));
+  const now = Math.floor(Date.now() / 1000);
+  const payload = { iss:'가상 모바일신분증 발급기관', copy_id: salt().slice(0, 10), purpose:req.purpose, recipient:req.recipient,
+    iat: now, exp: now + ttl, _sd_alg:'sha-256', _sd: all.map(a => a.digest).sort() };
+  const h = b64uStr(JSON.stringify({ alg:'ES256', typ:'vc+sd-jwt' })), p = b64uStr(JSON.stringify(payload));
+  const sig = b64u(await crypto.subtle.sign(SIGN, (await issuerKeys()).priv, enc(h + '.' + p)));
+  const shown = all.filter(a => fields.includes(a.k)).map(a => a.d);
+  save('copies', [...load('copies', []), { id: payload.copy_id, purpose:req.purpose, recipient:req.recipient, fields, exp: payload.exp }]);
+  return `${h}.${p}.${sig}~${shown.join('~')}~`;
+}
+
+async function verifyCopy(token) {
+  let payload;
+  const fail = reason => { if (payload) log(payload.copy_id, '실패: ' + reason); return { ok:false, reason, payload }; };
+  try {
+    const [jwt, ...rest] = token.trim().split('~');
+    const [h, p, s] = jwt.split('.');
+    payload = JSON.parse(strB64u(p));
+    if (!await crypto.subtle.verify(SIGN, (await issuerKeys()).pub, unb64u(s), enc(h + '.' + p)))
+      return fail('정부 서명이 맞지 않습니다 (위조·변조된 사본)');
+    const shown = {};
+    for (const d of rest.filter(Boolean)) {
+      if (!payload._sd.includes(await sha(d))) return fail('항목 값이 바뀌었습니다 (변조된 사본)');
+      const [, k, v] = JSON.parse(strB64u(d)); shown[k] = v;
+    }
+    if (load('revoked', []).includes(payload.copy_id)) return fail('이용자가 이 사본을 철회했습니다');
+    if (Date.now() / 1000 > payload.exp) return fail('열람 기한이 지났습니다');
+    log(payload.copy_id, '열람 성공');
+    return { ok:true, payload, shown };
+  } catch { return fail('형식이 올바르지 않은 코드입니다'); }
+}
+
+const log = (id, result) => save('logs', [...load('logs', []), { id, at: Date.now(), result }]);
+
+// ---- 화면 ----
+const $ = id => document.getElementById(id);
+const stagger = el => [...el.children].forEach((c, i) => c.style.setProperty('--i', i)); // 차례로 나타날 순번
+const fmt = t => new Date(t * 1000).toLocaleString('ko-KR');
+let request = null, t0 = 0;
+
+function show(tab) {
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === tab));
+  document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+  if (tab === 'admin') renderAdmin();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.tab));
+$('purpose').innerHTML = Object.keys(TEMPLATES).map(p => `<option>${p}</option>`).join('');
+
+$('sendReq').onclick = () => {
+  request = { recipient: $('recipient').value.trim() || '받는 사람', purpose: $('purpose').value };
+  t0 = Date.now();
+  const tpl = TEMPLATES[request.purpose];
+  $('issueBody').innerHTML = `
+    <p><b>${request.recipient}</b>이(가) <b>${request.purpose}</b> 용도로 신분증 사본을 요청했어요.<br>
+    이 용도에는 아래에 체크된 항목만 필요해요. 더 줄일 수도 있어요.</p>
+    <div class="fields">${Object.keys(CLAIMS).map(k => `<label><input type="checkbox" value="${k}" ${tpl.includes(k) ? 'checked' : ''}> ${LABEL[k]}</label>`).join('')}</div>
+    <div class="note" id="rrnWarn" hidden>주민번호 뒷자리는 법령에 근거가 있을 때만 보내세요.</div>
+    <label for="ttl">열람 기한</label>
+    <select id="ttl">${Object.keys(EXPIRY).map(e => `<option>${e}</option>`).join('')}</select>
+    <button class="btn" id="doIssue">동의하고 안심사본 보내기</button>
+    <div id="issueOut" class="stagger"></div>`;
+  $('issueBody').onchange = () => $('rrnWarn').hidden = !document.querySelector('#issueBody input[value=rrn_back]').checked;
+  $('doIssue').onclick = async () => {
+    const took = ((Date.now() - t0) / 1000).toFixed(1); // 대기 연출 전에 잰다
+    const fields = [...document.querySelectorAll('#issueBody input:checked')].map(c => c.value);
+    const token = await issueCopy(request, fields, EXPIRY[$('ttl').value]);
+    const link = location.href.split('#')[0] + '#v=' + token;
+    await loading($('issueOut'), 'composing', '안심사본을 만들고 있어요');
+    $('issueOut').innerHTML = `
+      <div class="banner ok">안심사본을 보냈어요 · 요청을 받고 ${took}초 만에 발급</div>
+      <div class="qr">${qrSvg(link)}<div>받는 사람에게 이 링크(또는 QR)가 전달돼요.<br>휴대폰 카메라로 찍으면 바로 검증 화면이 열려요.</div></div>
+      <div class="link">${link}</div>
+      <button class="btn ghost" id="goVerify">받는 사람 화면에서 열어 보기</button>`;
+    stagger($('issueOut'));
+    $('goVerify').onclick = () => { $('token').value = link; show('verify'); runVerify(); };
+  };
+  show('issue');
+};
+
+const tokenOf = v => v.includes('#v=') ? v.split('#v=')[1] : v;
+
+// thinking-orbs 엔진(MIT, vendor/thinking-orbs)으로 캔버스에 점 구슬을 그린다. React 부품 대신 엔진만 직접 돌림.
+// file://로 열면 모듈 import가 막히므로 그때는 구슬 없이 동작한다.
+const orbLib = import('./vendor/thinking-orbs/engine.es.js').catch(() => null);
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+async function mountOrb(canvas, state, preset) {
+  const lib = await orbLib; if (!lib) return;
+  const css = canvas.clientWidth || preset, k = Math.max(2, devicePixelRatio || 1) * css / preset; // 최소 2배로 촘촘하게
+  canvas.width = canvas.height = Math.round(preset * k);
+  const ctx = canvas.getContext('2d'), { mode, speed, opts } = lib.resolvePreset(state, preset);
+  const draw = t => { ctx.setTransform(k, 0, 0, k, 0, 0); ctx.clearRect(0, 0, preset, preset);
+    lib.paintFrame(ctx, lib.MODE_FRAMES[mode](preset, t, opts), canvas.dataset.dark === '1'); };
+  if (still) return draw(0.6);
+  const loop = () => { if (!canvas.isConnected) return; draw(performance.now() / 1e3 * speed); requestAnimationFrame(loop); };
+  loop();
+}
+// 작업 중임을 알리는 짧은 대기 표시 (발급·검증 자체는 즉시 끝남)
+async function loading(box, state, text) {
+  box.innerHTML = `<div class="loading-pill"><canvas role="img" aria-label="${text}"></canvas>${text}…</div>`;
+  mountOrb(box.querySelector('canvas'), state, 64);
+  await new Promise(r => setTimeout(r, still ? 0 : 700));
+}
+
+async function runVerify(token = tokenOf($('token').value)) {
+  const out = $('verifyOut');
+  await loading(out, 'searching', '정부 서명을 확인하고 있어요');
+  const r = await verifyCopy(token);
+  if (!r.ok) { out.innerHTML = `<div class="banner bad">검증 실패: ${r.reason}</div>`; return; }
+  const { payload, shown } = r, n = Object.keys(shown).length;
+  const wm = `${payload.recipient}, ${payload.purpose} 용도, ${fmt(payload.exp)}까지   `.repeat(40);
+  out.innerHTML = `
+    <div class="banner ok">정부 서명 확인: 진짜 신분증 정보입니다 (만료: ${fmt(payload.exp)})</div>
+    <div class="idcard">
+      <div class="photo">${shown.photo ? '얼굴 사진<br>(가상)' : '사진<br>가려짐'}</div>
+      <div>${Object.keys(LABEL).filter(k => k !== 'photo').map(k =>
+        `<div class="row"><b>${LABEL[k]}</b>${k in shown ? shown[k] : '<span class="hidden">가려짐</span>'}</div>`).join('')}</div>
+      <div class="wm" aria-hidden="true">${wm}</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><strong>${n}개</strong>받은 항목 (사진 사본은 ${PHOTO_COPY_COUNT}개 전부)</div>
+      <div class="stat"><strong>${'rrn_back' in shown ? '노출' : '없음'}</strong>주민번호 뒷자리</div>
+      <div class="stat"><strong>${payload._sd.length - n}개</strong>서명 안에 있지만 가려진 항목</div>
+      <div class="stat"><strong>${payload.purpose}</strong>${payload.recipient}에게만 발급</div>
+    </div>
+    <div class="qr">${qrSvg(location.href.split('#')[0] + '#v=' + token)}
+      <div><b>종이 안심사본</b><br>출력해서 내도 이 QR을 찍으면 진짜인지, 기한이 남았는지 바로 확인돼요.<br>
+      <small>${fmt(payload.exp)}까지 유효 · 사본 번호 ${payload.copy_id}</small></div></div>`;
+  stagger(out);
+}
+$('doVerify').onclick = () => runVerify();
+
+// 변조 시험: 생년월일 원문을 한 글자 바꿔서 다시 검증
+$('doTamper').onclick = () => {
+  const [jwt, ...rest] = tokenOf($('token').value).split('~');
+  const forged = rest.map(d => {
+    if (!d) return d;
+    const [s, k, v] = JSON.parse(strB64u(d));
+    return k === 'birth' ? b64uStr(JSON.stringify([s, k, v.replace('1990', '1980')])) : d;
+  });
+  if (forged.join() === rest.join()) { $('verifyOut').innerHTML = '<div class="note">생년월일이 들어 있는 사본으로 시험해 주세요.</div>'; return; }
+  runVerify([jwt, ...forged].join('~'));
+};
+
+function renderAdmin() {
+  const copies = load('copies', []), logs = load('logs', []), revoked = load('revoked', []), now = Date.now() / 1000;
+  if (!copies.length) { $('adminOut').innerHTML = '<p>아직 보낸 안심사본이 없어요.</p>'; return; }
+  $('adminOut').innerHTML = `<table>
+    <tr><th>받는 사람 · 용도</th><th>보낸 항목</th><th>상태</th><th>열람 기록</th><th></th></tr>
+    ${copies.slice().reverse().map(c => {
+      const mine = logs.filter(l => l.id === c.id);
+      const state = revoked.includes(c.id) ? ['bad','철회됨'] : now > c.exp ? ['bad','기한 지남'] : ['ok', fmt(c.exp) + '까지'];
+      return `<tr><td>${c.recipient}<br><small>${c.purpose}</small></td>
+        <td>${c.fields.map(f => LABEL[f]).join(', ')}</td>
+        <td><span class="tag ${state[0]}">${state[1]}</span></td>
+        <td><small>${mine.map(l => new Date(l.at).toLocaleTimeString('ko-KR') + ' ' + l.result).join('<br>') || '아직 없음'}</small></td>
+        <td>${state[0] === 'ok' ? `<button class="btn warn" data-revoke="${c.id}" style="margin:0">철회</button>` : ''}</td></tr>`;
+    }).join('')}</table>`;
+  $('adminOut').querySelectorAll('[data-revoke]').forEach(b => b.onclick = () => {
+    save('revoked', [...load('revoked', []), b.dataset.revoke]); renderAdmin();
+  });
+}
+
+// 링크로 열었으면 바로 검증 화면
+stagger(document.querySelector('.preview dl'));
+if (location.hash.startsWith('#v=')) { $('token').value = location.href; show('verify'); runVerify(); }
+</script>
+</body>
+</html>
