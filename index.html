@@ -101,6 +101,13 @@
   .qr { display:flex; flex-wrap:wrap; gap:24px; align-items:center; margin-top:8px; padding:24px; border-radius:24px; background:var(--frost); }
   /* 링크가 1,100자 안팎이라 QR이 113칸 이상 → 휴대폰이 읽도록 크게 */
   .qr svg { width:300px; max-width:100%; height:auto; flex:none; border-radius:16px; background:var(--white); }
+  .receipt { margin-top:8px; padding:24px; border-radius:24px; background:var(--midnight); color:var(--white); }
+  .rtitle { font-weight:600; font-size:18px; }
+  .rtitle small, .receipt .muted, .rnote { color:var(--ash); }
+  .receipt dl { display:grid; grid-template-columns:120px 1fr; gap:8px 16px; margin:16px 0 0; }
+  .receipt dt { color:var(--ash); }
+  .receipt dd { margin:0; }
+  .rnote { margin:16px 0 0; font-size:14px; }
   footer { padding:32px 16px; background:var(--frost); color:var(--slate); font-size:13px; }
   @media (max-width:600px) { .hero h1 { font-size:36px; } .hero .wrap { grid-template-columns:1fr; } .idcard { grid-template-columns:1fr; } }
   @media print { .hero, nav, .btn, .noprint, footer { display:none !important; } }
@@ -340,8 +347,29 @@ async function runVerify(token = tokenOf($('token').value)) {
     </div>
     <div class="qr">${qrSvg(location.href.split('#')[0] + '#v=' + token)}
       <div><b>종이 안심사본</b><br>출력해서 내도 이 QR을 찍으면 진짜인지, 기한이 남았는지 바로 확인돼요.<br>
-      <small>${fmt(payload.exp)}까지 유효 · 사본 번호 ${payload.copy_id}</small></div></div>`;
+      <small>${fmt(payload.exp)}까지 유효 · 사본 번호 ${payload.copy_id}</small></div></div>
+    ${receipt(payload, shown)}`;
   stagger(out);
+}
+
+// 양면 영수증: 받는 사람도 "무엇을, 왜, 언제까지 받았는지"를 정부 서명으로 남긴다.
+// 받는 쪽의 개인정보보호법 준수 증빙이 되므로, 사업자가 먼저 쓰고 싶어지는 이유가 된다.
+function receipt(payload, shown) {
+  const got = Object.keys(shown).map(k => LABEL[k]).join(', ');
+  const hid = Object.keys(LABEL).filter(k => !(k in shown)).map(k => LABEL[k]).join(', ');
+  return `
+    <div class="receipt">
+      <div class="rtitle">받는 사람용 영수증 <small>정부 서명 · 사본 번호 ${payload.copy_id}</small></div>
+      <dl>
+        <dt>받은 사람</dt><dd>${payload.recipient}</dd>
+        <dt>용도</dt><dd>${payload.purpose}</dd>
+        <dt>받은 항목</dt><dd>${got} <small>(${Object.keys(shown).length}개)</small></dd>
+        <dt>받지 않은 항목</dt><dd class="muted">${hid}</dd>
+        <dt>열람 기간</dt><dd>${fmt(payload.iat)} ~ ${fmt(payload.exp)}</dd>
+      </dl>
+      <p class="rnote">이 영수증은 "필요한 항목만 받았다"는 기록이에요. 개인정보 민원이나 점검 때 받는 사람이 증빙으로 쓸 수 있어요.</p>
+      <button class="btn ghost noprint" style="margin-top:8px" onclick="print()">영수증 인쇄</button>
+    </div>`;
 }
 $('doVerify').onclick = () => runVerify();
 
