@@ -26,7 +26,6 @@
   /* 오른쪽은 실제 검증 결과 카드의 축소판 (가상 데이터) */
   .preview { padding:24px; border-radius:24px; background:#141519; font-size:15px; }
   .preview .ok { display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:100000px; background:var(--midnight); font-size:13px; font-weight:600; }
-  .preview .ok::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--green); }
   .preview dl { display:grid; grid-template-columns:112px 1fr; gap:10px 12px; margin:20px 0 0; }
   .preview dt, .preview .off, .preview small { color:var(--ash); }
   .preview dd { margin:0; font-weight:600; }
@@ -42,12 +41,10 @@
   .btn, nav button, .fields label { transition:background-color .3s var(--ease), color .3s var(--ease), transform .3s var(--ease); }
   .btn:hover:not(:active) { transform:translateY(-1px); }
   @keyframes rise { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
-  @keyframes beat { 0%, 100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.6); opacity:.45; } }
   @media (prefers-reduced-motion: no-preference) {
     section.on { animation:rise .5s var(--ease); }
     /* 결과·미리보기 줄이 차례로 나타남 (--i는 순번) */
     .stagger > * { animation:rise .6s var(--ease) both; animation-delay:calc(var(--i, 0) * 70ms); }
-    .preview .ok::before { animation:beat 2.4s ease-in-out infinite; } /* 살아 있는 검증 상태 */
   }
   main { padding:48px 16px 80px; }
   nav { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:48px; }
@@ -73,9 +70,7 @@
   .fields input { width:18px; height:18px; accent-color:var(--blue); }
   .note { margin-top:16px; padding:16px 24px; border-radius:24px; background:var(--frost); color:var(--slate); }
   .banner { display:flex; gap:12px; align-items:center; margin:32px 0 16px; padding:20px 24px; border-radius:24px; background:var(--frost); font-weight:600; }
-  .banner::before { content:''; width:10px; height:10px; border-radius:50%; flex:none; }
-  .banner.ok::before { background:var(--green); }
-  .banner.bad::before { background:var(--red); }
+  .banner.bad::before { content:''; width:10px; height:10px; border-radius:50%; flex:none; background:var(--red); }
   .idcard { position:relative; overflow:hidden; display:grid; grid-template-columns:112px 1fr; gap:24px; padding:24px; border-radius:24px; background:var(--frost); }
   .photo { width:112px; height:140px; border-radius:16px; background:var(--cloud); display:grid; place-items:center; color:var(--slate); font-size:13px; text-align:center; }
   .row { display:flex; gap:16px; padding:6px 0; }
@@ -95,9 +90,11 @@
   small { color:var(--slate); }
   .tag { padding:4px 12px; border-radius:100000px; background:var(--white); font-size:13px; font-weight:600; white-space:nowrap; }
   /* 초록·빨강 글씨는 흰 바탕 대비 3:1 미만 → 글씨는 midnight, 상태는 점 색으로만 */
-  .tag::before { content:''; display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; vertical-align:1px; }
-  .tag.ok::before { background:var(--green); }
-  .tag.bad::before { background:var(--red); }
+  .tag.bad::before { content:''; display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; vertical-align:1px; background:var(--red); }
+  /* 정상 상태는 초록 점 대신 숨 쉬는 구슬(20px 원작 크기). 구슬을 못 그리면(file://) 초록 점으로 남음 */
+  .orb { width:20px; height:20px; flex:none; }
+  .orb:not(.on) { border-radius:50%; background:var(--green); transform:scale(.45); }
+  .tag .orb { margin:-4px 2px -4px -6px; vertical-align:middle; }
   .qr { display:flex; flex-wrap:wrap; gap:24px; align-items:center; margin-top:8px; padding:24px; border-radius:24px; background:var(--frost); }
   /* 링크가 1,100자 안팎이라 QR이 113칸 이상 → 휴대폰이 읽도록 크게 */
   .qr svg { width:300px; max-width:100%; height:auto; flex:none; border-radius:16px; background:var(--white); }
@@ -121,7 +118,7 @@
     <p>신분증 사진 대신, 항목·기한·받는 사람이 정해진 검증 사본을 보내세요.</p>
   </div>
   <div class="preview" role="img" aria-label="안심사본 검증 화면 예시">
-    <span class="ok">정부 서명 확인</span>
+    <span class="ok"><canvas class="orb" data-dark="1" aria-hidden="true"></canvas>정부 서명 확인</span>
     <dl class="stagger">
       <dt>이름</dt><dd>김모바</dd>
       <dt>생년월일</dt><dd>1990-01-01</dd>
@@ -290,11 +287,11 @@ $('sendReq').onclick = () => {
     const link = location.href.split('#')[0] + '#v=' + token;
     await loading($('issueOut'), 'composing', '안심사본을 만들고 있어요');
     $('issueOut').innerHTML = `
-      <div class="banner ok">안심사본을 보냈어요 · 요청을 받고 ${took}초 만에 발급</div>
+      <div class="banner ok">${OK_ORB}안심사본을 보냈어요 · 요청을 받고 ${took}초 만에 발급</div>
       <div class="qr">${qrSvg(link)}<div>받는 사람에게 이 링크(또는 QR)가 전달돼요.<br>휴대폰 카메라로 찍으면 바로 검증 화면이 열려요.</div></div>
       <div class="link">${link}</div>
       <button class="btn ghost" id="goVerify">받는 사람 화면에서 열어 보기</button>`;
-    stagger($('issueOut'));
+    stagger($('issueOut')); okOrbs($('issueOut'));
     $('goVerify').onclick = () => { $('token').value = link; show('verify'); runVerify(); };
   };
   show('issue');
@@ -306,17 +303,21 @@ const tokenOf = v => v.includes('#v=') ? v.split('#v=')[1] : v;
 // file://로 열면 모듈 import가 막히므로 그때는 구슬 없이 동작한다.
 const orbLib = import('./vendor/thinking-orbs/engine.es.js').catch(() => null);
 const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-async function mountOrb(canvas, state, preset) {
+async function mountOrb(canvas, state, preset, tint) {
   const lib = await orbLib; if (!lib) return;
   const css = canvas.clientWidth || preset, k = Math.max(2, devicePixelRatio || 1) * css / preset; // 최소 2배로 촘촘하게
   canvas.width = canvas.height = Math.round(preset * k);
   const ctx = canvas.getContext('2d'), { mode, speed, opts } = lib.resolvePreset(state, preset);
   const draw = t => { ctx.setTransform(k, 0, 0, k, 0, 0); ctx.clearRect(0, 0, preset, preset);
-    lib.paintFrame(ctx, lib.MODE_FRAMES[mode](preset, t, opts), canvas.dataset.dark === '1'); };
+    lib.paintFrame(ctx, lib.MODE_FRAMES[mode](preset, t, opts), canvas.dataset.dark === '1', tint); };
+  canvas.classList.add('on');
   if (still) return draw(0.6);
   const loop = () => { if (!canvas.isConnected) return; draw(performance.now() / 1e3 * speed); requestAnimationFrame(loop); };
   loop();
 }
+// 정상 상태 표시: 초록(#27ad75) 구슬이 천천히 숨 쉰다
+const OK_ORB = '<canvas class="orb" aria-hidden="true"></canvas>';
+const okOrbs = root => root.querySelectorAll('canvas.orb').forEach(c => mountOrb(c, 'breathing', 20, { r: 39, g: 173, b: 117 }));
 // 작업 중임을 알리는 짧은 대기 표시 (발급·검증 자체는 즉시 끝남)
 async function loading(box, state, text) {
   box.innerHTML = `<div class="loading-pill"><canvas role="img" aria-label="${text}"></canvas>${text}…</div>`;
@@ -332,7 +333,7 @@ async function runVerify(token = tokenOf($('token').value)) {
   const { payload, shown } = r, n = Object.keys(shown).length;
   const wm = `${payload.recipient}, ${payload.purpose} 용도, ${fmt(payload.exp)}까지   `.repeat(40);
   out.innerHTML = `
-    <div class="banner ok">정부 서명 확인: 진짜 신분증 정보입니다 (만료: ${fmt(payload.exp)})</div>
+    <div class="banner ok">${OK_ORB}정부 서명 확인: 진짜 신분증 정보입니다 (만료: ${fmt(payload.exp)})</div>
     <div class="idcard">
       <div class="photo">${shown.photo ? '얼굴 사진<br>(가상)' : '사진<br>가려짐'}</div>
       <div>${Object.keys(LABEL).filter(k => k !== 'photo').map(k =>
@@ -349,7 +350,7 @@ async function runVerify(token = tokenOf($('token').value)) {
       <div><b>종이 안심사본</b><br>출력해서 내도 이 QR을 찍으면 진짜인지, 기한이 남았는지 바로 확인돼요.<br>
       <small>${fmt(payload.exp)}까지 유효 · 사본 번호 ${payload.copy_id}</small></div></div>
     ${receipt(payload, shown)}`;
-  stagger(out);
+  stagger(out); okOrbs(out);
 }
 
 // 양면 영수증: 받는 사람도 "무엇을, 왜, 언제까지 받았는지"를 정부 서명으로 남긴다.
@@ -395,17 +396,18 @@ function renderAdmin() {
       const state = revoked.includes(c.id) ? ['bad','철회됨'] : now > c.exp ? ['bad','기한 지남'] : ['ok', fmt(c.exp) + '까지'];
       return `<tr><td>${c.recipient}<br><small>${c.purpose}</small></td>
         <td>${c.fields.map(f => LABEL[f]).join(', ')}</td>
-        <td><span class="tag ${state[0]}">${state[1]}</span></td>
+        <td><span class="tag ${state[0]}">${state[0] === 'ok' ? OK_ORB : ''}${state[1]}</span></td>
         <td><small>${mine.map(l => new Date(l.at).toLocaleTimeString('ko-KR') + ' ' + l.result).join('<br>') || '아직 없음'}</small></td>
         <td>${state[0] === 'ok' ? `<button class="btn warn" data-revoke="${c.id}" style="margin:0">철회</button>` : ''}</td></tr>`;
     }).join('')}</table>`;
+  okOrbs($('adminOut'));
   $('adminOut').querySelectorAll('[data-revoke]').forEach(b => b.onclick = () => {
     save('revoked', [...load('revoked', []), b.dataset.revoke]); renderAdmin();
   });
 }
 
 // 링크로 열었으면 바로 검증 화면
-stagger(document.querySelector('.preview dl'));
+stagger(document.querySelector('.preview dl')); okOrbs(document.querySelector('.preview'));
 if (location.hash.startsWith('#v=')) { $('token').value = location.href; show('verify'); runVerify(); }
 </script>
 </body>
