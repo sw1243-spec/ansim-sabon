@@ -63,7 +63,7 @@
   .btn:active, nav button:active { transform:scale(0.98); }
   .btn.ghost { background:var(--cloud); color:var(--midnight); }
   .btn.ghost:hover { background:var(--pewter); }
-  .btn.warn { margin:0; padding:10px 20px; background:var(--midnight); font-size:14px; }
+  .btn.warn { margin:0; padding:10px 20px; background:var(--midnight); font-size:14px; white-space:nowrap; }
   .fields { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
   .fields label { margin:0; padding:14px 18px; border-radius:100000px; background:var(--frost); font-weight:400; display:flex; gap:10px; align-items:center; cursor:pointer; }
   .fields label:has(input:checked) { background:var(--midnight); color:var(--white); }
@@ -83,7 +83,7 @@
   .link { margin-top:8px; padding:16px 24px; border-radius:24px; background:var(--frost); color:var(--slate); font:12px/1.5 ui-monospace, Consolas, monospace; word-break:break-all; }
   #adminOut { overflow-x:auto; } /* 좁은 휴대폰에서 표만 옆으로 밀리게 */
   table { width:100%; border-collapse:separate; border-spacing:0 8px; font-size:15px; }
-  th { padding:0 16px; text-align:left; color:var(--slate); font-size:13px; font-weight:400; }
+  th { padding:0 16px; text-align:left; color:var(--slate); font-size:13px; font-weight:400; white-space:nowrap; }
   td { padding:16px; background:var(--frost); vertical-align:top; }
   td:first-child { border-radius:24px 0 0 24px; }
   td:last-child { border-radius:0 24px 24px 0; }
